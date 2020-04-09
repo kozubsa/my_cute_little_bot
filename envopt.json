@@ -1,0 +1,4 @@
+[
+  {"key": "TELEGRAM_SECRET", "critical": true, "default": ""},
+  {"key": "TELEGRAM_GROUP_ID", "critical": true, "default": ""}
+]
