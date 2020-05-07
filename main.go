@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/introphin/envopt"
+	"github.com/infothroat/envopt"
 	"log"
 )
 
@@ -69,6 +69,12 @@ func main() {
 			msg = tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("chat id is: %#v", update.Message.Chat.ID))
 		case "user":
 			msg = tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("user id is: %#v", update.Message.From.ID))
+		case "photo":
+			ph := tgbotapi.NewPhotoShare(update.Message.Chat.ID, "AgACAgIAAxkBAANVXqCu-DE3uXasdEDsl9wAAXKmStMkAAJLrjEb10wJSeDhSvBNcaaFzfLADgAEAQADAgADbQADj2wFAAEYBA")
+			if _, err := bot.Send(ph); err != nil {
+				log.Println(err)
+			}
+
 		default:
 			msg = tgbotapi.NewMessage(update.Message.Chat.ID, "unknown command")
 		}
