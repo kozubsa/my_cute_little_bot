@@ -3,84 +3,125 @@ package main
 import (
 	"fmt"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/infothroat/envopt"
+	"io"
 	"log"
+	"net/http"
+	"os"
 )
 
 func main() {
-	envopt.Validate("envopt.json")
+	var token = ""
 
-	bot, err := tgbotapi.NewBotAPI(envopt.GetEnv("TELEGRAM_SECRET"))
+	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	bot.Debug = false
+
 	log.Printf("Authorized on account %s", bot.Self.UserName)
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
 	updates, err := bot.GetUpdatesChan(u)
 
 	for update := range updates {
+
+		// check Message, group, user
+		if update.ChannelPost != nil {
+			continue
+		}
 		if update.Message == nil { // ignore any non-Message Updates
 			continue
 		}
+		if update.Message.Chat == nil {
+			continue
+		}
+		if update.Message.From == nil {
+			continue
+		}
+		if update.Message.ForwardFromChat != nil &&
+			update.Message.From != nil {
+			integrationMsg := fmt.Sprintf("Новая интеграция:\n")
+			integrationMsg += fmt.Sprintf("User id:\n%d\n", update.Message.From.ID)
+			integrationMsg += fmt.Sprintf("User first_name:\n%s\n", update.Message.From.FirstName)
+			integrationMsg += fmt.Sprintf("User last_name:\n%s\n", update.Message.From.LastName)
+			integrationMsg += fmt.Sprintf("User username:\n%s\n", update.Message.From.UserName)
+			integrationMsg += fmt.Sprintf("Forward chat id:\n%d\n", update.Message.ForwardFromChat.ID)
+			integrationMsg += fmt.Sprintf("Forward chat title:\n%s\n", update.Message.ForwardFromChat.Title)
 
-		if !update.Message.IsCommand() {
+			msg := tgbotapi.NewMessage(292572266, integrationMsg)
+
+			if _, err := bot.Send(msg); err != nil {
+				return
+			}
 			continue
 		}
 
-		msg := tgbotapi.MessageConfig{}
+		if update.Message.NewChatMembers != nil &&
+			update.Message.From != nil {
+			integrationMsg := fmt.Sprintf("Новая интеграция:\n")
+			integrationMsg += fmt.Sprintf("User id:\n%d\n", update.Message.From.ID)
+			integrationMsg += fmt.Sprintf("User first_name:\n%s\n", update.Message.From.FirstName)
+			integrationMsg += fmt.Sprintf("User last_name:\n%s\n", update.Message.From.LastName)
+			integrationMsg += fmt.Sprintf("User username:\n%s\n", update.Message.From.UserName)
+			integrationMsg += fmt.Sprintf("New chat id:\n%d\n", update.Message.Chat.ID)
+			integrationMsg += fmt.Sprintf("Chat title:\n%s\n", update.Message.Chat.Title)
+			integrationMsg += fmt.Sprintf("Chat type:\n%s\n", update.Message.Chat.Type)
 
-		switch update.Message.Command() {
-		case "info":
-			text := ""
+			msg := tgbotapi.NewMessage(292572266, integrationMsg)
 
-			if update.Message.From != nil {
-				fromTemplate := "From:\n\t\tid: %d\n\t\tusername: %s\n\t\tfirst name: %s\n\t\tlast name: %s\n\t\tlanguage code: %s\n\n"
-				text += fmt.Sprintf(fromTemplate,
-					update.Message.From.ID,
-					update.Message.From.UserName,
-					update.Message.From.FirstName,
-					update.Message.From.LastName,
-					update.Message.From.LanguageCode,
-				)
+			if _, err := bot.Send(msg); err != nil {
+				return
 			}
-			if update.Message.Chat != nil {
-				chatTemplate := "Chat:\n\t\tid: %d\n\t\ttype: %s\n\t\ttitle: %s\n\t\tusername: %s\n\t\tfirst name: %s\n\t\tlast name: %s\n\t\tAllMembersAreAdmins: %v\n\t\tDescription: %s\n\t\tInviteLink: %s\n\n"
-				text += fmt.Sprintf(chatTemplate,
-					update.Message.Chat.ID,
-					update.Message.Chat.Type,
-					update.Message.Chat.Title,
-					update.Message.Chat.UserName,
-					update.Message.Chat.FirstName,
-					update.Message.Chat.LastName,
-					update.Message.Chat.AllMembersAreAdmins,
-					update.Message.Chat.Description,
-					update.Message.Chat.InviteLink,
-				)
-			}
-
-			text += fmt.Sprintf("MessageID: %d\n", update.Message.MessageID)
-
-			msg = tgbotapi.NewMessage(update.Message.Chat.ID, text)
-		case "group":
-			msg = tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("chat id is: %#v", update.Message.Chat.ID))
-		case "user":
-			msg = tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("user id is: %#v", update.Message.From.ID))
-		case "photo":
-			ph := tgbotapi.NewPhotoShare(update.Message.Chat.ID, "AgACAgIAAxkBAANVXqCu-DE3uXasdEDsl9wAAXKmStMkAAJLrjEb10wJSeDhSvBNcaaFzfLADgAEAQADAgADbQADj2wFAAEYBA")
-			if _, err := bot.Send(ph); err != nil {
-				log.Println(err)
-			}
-
-		default:
-			msg = tgbotapi.NewMessage(update.Message.Chat.ID, "unknown command")
+			continue
 		}
 
-		if _, err := bot.Send(msg); err != nil {
-			log.Println(err)
-		}
+		// var maxSizePicture tgbotapi.PhotoSize
+
+		// // телеграм возвращает фотографии в нескольких версиях
+		// // сохраняем самую большую
+		// for _, photo := range *update.Message.Photo {
+		// 	if maxSizePicture.FileSize > photo.FileSize {
+		// 		continue
+		// 	}
+		// 	maxSizePicture = photo
+		// }
+		//
+		// fileUrl, err := bot.GetFileDirectURL(maxSizePicture.FileID)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+		//
+		// file := "./files/"+uuid.New().String()+".png"
+		// if err := DownloadFile(file, fileUrl); err != nil {
+		// 	log.Fatal(err)
+		// }
+		//
+		// log.Println("Downloaded: " + fileUrl)
 	}
+}
+
+// DownloadFile will download a url to a local file. It's efficient because it will
+// write as it downloads and not load the whole file into memory.
+func DownloadFile(filepath string, url string) error {
+
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
